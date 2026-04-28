@@ -1,0 +1,43 @@
+{
+  "summary": "Comprehensive backend (26/26 pytest passed) and frontend smoke-flow tests for Hotel Swastik booking app. All requested features verified end-to-end: auth, rooms, bookings CRUD, search, by-aadhar history, checkout, WebSocket auth + booking_created broadcast, and UI flows (login→dashboard→new booking modal→bookings tabs→search→settings).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "WS /api/ws (invalid token)", "issue": "When token is provided but invalid, the ingress/edge layer rejects with HTTP 403 before FastAPI can send close code 4401. Missing-token path returns 4401 from FastAPI directly. Functionally correct (rejection enforced), but the close-code contract differs by path. Not blocking."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "global", "issues": ["Console deprecation warnings from react-native-web: 'shadow*' style props deprecated (use boxShadow), 'props.pointerEvents' deprecated (use style.pointerEvents). Low priority - cosmetic only."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_swastik_api.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Optional, low priority) Replace deprecated 'shadow*' style props with boxShadow and 'props.pointerEvents' with style.pointerEvents to silence RN Web warnings.",
+    "(Optional) Investigate why ingress layer rejects WS with invalid token at HTTP 403 before reaching FastAPI's 4401 close handler — likely due to the long token query param being parsed by edge proxy. Functionally fine."
+  ],
+  "critical_code_review_comments": [
+    "server.py is a single 515-line module which is acceptable but approaching the 700-line threshold; if more endpoints are added consider splitting (auth, rooms, bookings, ws) into routers.",
+    "CORS allow_origins=['*'] with allow_credentials=False is fine for token-in-header auth (current setup).",
+    "All Mongo responses correctly exclude _id via projection {'_id': 0} and explicit _booking_public sanitizer.",
+    "JWT secret is loaded from env, bcrypt hash format ($2b$) used, seed_admin is idempotent and updates password if env value changes — good."
+  ],
+  "updated_files": [
+    "/app/backend/tests/__init__.py (created)",
+    "/app/backend/tests/conftest.py (created)",
+    "/app/backend/tests/test_swastik_api.py (created)"
+  ],
+  "success_rate": {"backend": "100% (26/26)", "frontend": "100% (12/12 UI flow steps)"},
+  "seed_data_creation": "Tests created bookings on rooms 101, 102, 103, 105 prefixed with TEST_; all checked out / cleaned up at session end.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Tests live at /app/backend/tests/. Run with: cd /app/backend/tests && pytest -v. Frontend public URL: https://swastik-stay.preview.emergentagent.com (env key is EXPO_PUBLIC_BACKEND_URL, not EXPO_BACKEND_URL). Admin creds: admin@swastik.com / admin123.",
+  "rca_of_issue": "N/A — no bugs found. Build is functional and meets all 19 acceptance criteria listed in the review request."
+}
