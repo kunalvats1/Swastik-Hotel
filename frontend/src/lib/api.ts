@@ -71,8 +71,8 @@ export type Booking = {
 };
 
 export type BookingDetail = Booking & {
-  aadhar_front_b64: string;
-  aadhar_back_b64: string;
-  partner_aadhar_front_b64?: string | null;
-  partner_aadhar_back_b64?: string | null;
+  aadhar_front_url: string;
+  aadhar_back_url: string;
+  partner_aadhar_front_url?: string | null;
+  partner_aadhar_back_url?: string | null;
 };

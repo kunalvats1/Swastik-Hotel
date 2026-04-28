@@ -22,6 +22,7 @@ export default function BookingDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [confirmCheckout, setConfirmCheckout] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -52,6 +53,25 @@ export default function BookingDetailScreen() {
       await load();
       setConfirmCheckout(false);
       setTimeout(() => router.back(), 1100);
+    } catch (e) {
+      setError(formatErr(e));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const deleteBooking = async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      setTimeout(() => setConfirmDelete(false), 4000);
+      return;
+    }
+    setWorking(true);
+    setError(null);
+    try {
+      await api.delete(`/bookings/${id}`);
+      setSuccess("Booking deleted");
+      setTimeout(() => router.back(), 900);
     } catch (e) {
       setError(formatErr(e));
     } finally {
@@ -129,10 +149,10 @@ export default function BookingDetailScreen() {
           <Row label="Phone" value={b.phone} />
         </Card>
 
-        {b.aadhar_front_b64 || b.aadhar_back_b64 ? (
+        {b.aadhar_front_url || b.aadhar_back_url ? (
           <View style={styles.photoRow}>
-            {b.aadhar_front_b64 ? <Image source={{ uri: b.aadhar_front_b64 }} style={styles.photo} /> : null}
-            {b.aadhar_back_b64 ? <Image source={{ uri: b.aadhar_back_b64 }} style={styles.photo} /> : null}
+            {b.aadhar_front_url ? <Image source={{ uri: b.aadhar_front_url }} style={styles.photo} /> : null}
+            {b.aadhar_back_url ? <Image source={{ uri: b.aadhar_back_url }} style={styles.photo} /> : null}
           </View>
         ) : null}
 
@@ -144,10 +164,10 @@ export default function BookingDetailScreen() {
               <Row label="Name" value={b.partner_name} />
               {b.partner_aadhar ? <Row label="Aadhar" value={b.partner_aadhar} mono /> : null}
             </Card>
-            {b.partner_aadhar_front_b64 || b.partner_aadhar_back_b64 ? (
+            {b.partner_aadhar_front_url || b.partner_aadhar_back_url ? (
               <View style={styles.photoRow}>
-                {b.partner_aadhar_front_b64 ? <Image source={{ uri: b.partner_aadhar_front_b64 }} style={styles.photo} /> : null}
-                {b.partner_aadhar_back_b64 ? <Image source={{ uri: b.partner_aadhar_back_b64 }} style={styles.photo} /> : null}
+                {b.partner_aadhar_front_url ? <Image source={{ uri: b.partner_aadhar_front_url }} style={styles.photo} /> : null}
+                {b.partner_aadhar_back_url ? <Image source={{ uri: b.partner_aadhar_back_url }} style={styles.photo} /> : null}
               </View>
             ) : null}
           </>
@@ -202,6 +222,51 @@ export default function BookingDetailScreen() {
             </TouchableOpacity>
             {confirmCheckout && (
               <Text style={styles.confirmHint}>This will mark Room {b.room_no} as available</Text>
+            )}
+          </>
+        )}
+
+        {b.status === "completed" && (
+          <>
+            {error ? (
+              <View style={styles.errorBanner} testID="checkout-error">
+                <Ionicons name="alert-circle" size={18} color={colors.occupiedText} />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+            {success ? (
+              <View style={styles.successBanner} testID="checkout-success">
+                <Ionicons name="checkmark-circle" size={18} color={colors.availableText} />
+                <Text style={styles.successText}>{success}</Text>
+              </View>
+            ) : null}
+            <TouchableOpacity
+              style={[
+                styles.deleteBtn,
+                confirmDelete && styles.deleteBtnConfirm,
+                working && { opacity: 0.7 },
+              ]}
+              onPress={deleteBooking}
+              disabled={working}
+              testID="delete-button"
+            >
+              {working ? (
+                <ActivityIndicator color={colors.primaryText} />
+              ) : (
+                <>
+                  <Ionicons
+                    name={confirmDelete ? "warning" : "trash-outline"}
+                    size={18}
+                    color={confirmDelete ? colors.primaryText : colors.occupiedText}
+                  />
+                  <Text style={[styles.deleteText, confirmDelete && { color: colors.primaryText }]}>
+                    {confirmDelete ? "Tap again to delete permanently" : "Delete this booking"}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+            {confirmDelete && (
+              <Text style={styles.confirmHint}>This permanently deletes the record + Aadhar photos</Text>
             )}
           </>
         )}
@@ -277,4 +342,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.availableBg, padding: 12, borderRadius: radii.md, marginTop: 18,
   },
   successText: { flex: 1, color: colors.availableText, fontSize: 13, fontWeight: "700" },
+  deleteBtn: {
+    marginTop: 22, backgroundColor: "transparent", borderRadius: radii.md,
+    paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    borderWidth: 1.5, borderColor: colors.occupiedText,
+  },
+  deleteBtnConfirm: { backgroundColor: colors.occupiedText, borderColor: colors.occupiedText },
+  deleteText: { color: colors.occupiedText, fontSize: 14, fontWeight: "700" },
 });

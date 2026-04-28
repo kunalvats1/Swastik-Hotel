@@ -18,6 +18,8 @@ from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, WebSock
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr
+import cloudinary
+import cloudinary.uploader
 
 
 # ---------- Config ----------
@@ -29,6 +31,14 @@ ACCESS_TOKEN_EXPIRE_HOURS = 24 * 7  # 7 days for mobile convenience
 
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@swastik.com")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
+
+# Cloudinary
+cloudinary.config(
+    cloud_name=os.environ["CLOUDINARY_CLOUD_NAME"],
+    api_key=os.environ["CLOUDINARY_API_KEY"],
+    api_secret=os.environ["CLOUDINARY_API_SECRET"],
+    secure=True,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("swastik")
@@ -95,6 +105,40 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
+# ---------- Cloudinary helpers ----------
+def upload_aadhar_to_cloudinary(b64_data_uri: str, folder: str, public_id: str) -> dict:
+    """Upload base64 data URI string to Cloudinary. Returns {url, public_id}."""
+    if not b64_data_uri:
+        return {"url": "", "public_id": ""}
+    try:
+        result = cloudinary.uploader.upload(
+            b64_data_uri,
+            folder=folder,
+            public_id=public_id,
+            overwrite=True,
+            resource_type="image",
+            transformation=[
+                {"width": 1200, "crop": "limit"},
+                {"quality": "auto:good"},
+                {"fetch_format": "auto"},
+            ],
+        )
+        return {"url": result["secure_url"], "public_id": result["public_id"]}
+    except Exception as e:
+        logger.error(f"Cloudinary upload failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Photo upload failed: {str(e)}")
+
+
+def delete_from_cloudinary(public_ids: List[str]):
+    for pid in public_ids:
+        if not pid:
+            continue
+        try:
+            cloudinary.uploader.destroy(pid, invalidate=True)
+        except Exception as e:
+            logger.warning(f"Failed to delete {pid}: {e}")
+
+
 # ---------- Models ----------
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -151,10 +195,10 @@ class BookingOut(BaseModel):
 
 
 class BookingDetail(BookingOut):
-    aadhar_front_b64: str
-    aadhar_back_b64: str
-    partner_aadhar_front_b64: Optional[str] = None
-    partner_aadhar_back_b64: Optional[str] = None
+    aadhar_front_url: str
+    aadhar_back_url: str
+    partner_aadhar_front_url: Optional[str] = None
+    partner_aadhar_back_url: Optional[str] = None
 
 
 class RoomStatus(BaseModel):
@@ -196,10 +240,10 @@ def _booking_public(doc: dict) -> dict:
 def _booking_detail(doc: dict) -> dict:
     base = _booking_public(doc)
     base.update({
-        "aadhar_front_b64": doc.get("aadhar_front_b64", ""),
-        "aadhar_back_b64": doc.get("aadhar_back_b64", ""),
-        "partner_aadhar_front_b64": doc.get("partner_aadhar_front_b64"),
-        "partner_aadhar_back_b64": doc.get("partner_aadhar_back_b64"),
+        "aadhar_front_url": doc.get("aadhar_front_url") or doc.get("aadhar_front_b64", ""),
+        "aadhar_back_url": doc.get("aadhar_back_url") or doc.get("aadhar_back_b64", ""),
+        "partner_aadhar_front_url": doc.get("partner_aadhar_front_url") or doc.get("partner_aadhar_front_b64"),
+        "partner_aadhar_back_url": doc.get("partner_aadhar_back_url") or doc.get("partner_aadhar_back_b64"),
     })
     return base
 
@@ -323,10 +367,25 @@ async def create_booking(payload: BookingCreate, current: dict = Depends(get_cur
     if existing:
         raise HTTPException(status_code=409, detail=f"Room {payload.room_no} is currently occupied")
 
+    booking_id = str(uuid.uuid4())
+    folder = f"swastik/bookings/{booking_id}"
+
+    # Upload photos to Cloudinary (run in threadpool since SDK is sync)
+    import asyncio as _asyncio
+    loop = _asyncio.get_running_loop()
+    front = await loop.run_in_executor(None, upload_aadhar_to_cloudinary, payload.aadhar_front_b64, folder, "aadhar_front")
+    back = await loop.run_in_executor(None, upload_aadhar_to_cloudinary, payload.aadhar_back_b64, folder, "aadhar_back")
+    p_front = {"url": "", "public_id": ""}
+    p_back = {"url": "", "public_id": ""}
+    if payload.partner_aadhar_front_b64:
+        p_front = await loop.run_in_executor(None, upload_aadhar_to_cloudinary, payload.partner_aadhar_front_b64, folder, "partner_front")
+    if payload.partner_aadhar_back_b64:
+        p_back = await loop.run_in_executor(None, upload_aadhar_to_cloudinary, payload.partner_aadhar_back_b64, folder, "partner_back")
+
     now = datetime.now(timezone.utc)
     due = now + timedelta(hours=payload.duration_hours)
     doc = {
-        "id": str(uuid.uuid4()),
+        "id": booking_id,
         "room_no": payload.room_no,
         "room_type": rt,
         "customer_name": payload.customer_name.strip(),
@@ -334,10 +393,14 @@ async def create_booking(payload: BookingCreate, current: dict = Depends(get_cur
         "phone": payload.phone.strip(),
         "partner_name": (payload.partner_name or "").strip() or None,
         "partner_aadhar": ((payload.partner_aadhar or "").strip().replace(" ", "")) or None,
-        "aadhar_front_b64": payload.aadhar_front_b64,
-        "aadhar_back_b64": payload.aadhar_back_b64,
-        "partner_aadhar_front_b64": payload.partner_aadhar_front_b64,
-        "partner_aadhar_back_b64": payload.partner_aadhar_back_b64,
+        "aadhar_front_url": front["url"],
+        "aadhar_front_public_id": front["public_id"],
+        "aadhar_back_url": back["url"],
+        "aadhar_back_public_id": back["public_id"],
+        "partner_aadhar_front_url": p_front["url"] or None,
+        "partner_aadhar_front_public_id": p_front["public_id"] or None,
+        "partner_aadhar_back_url": p_back["url"] or None,
+        "partner_aadhar_back_public_id": p_back["public_id"] or None,
         "duration_hours": payload.duration_hours,
         "rate": payload.rate,
         "check_in": now.isoformat(),
@@ -436,6 +499,54 @@ async def history_by_aadhar(aadhar_id: str, current: dict = Depends(get_current_
     async for b in cursor:
         out.append(_booking_public(b))
     return out
+
+
+@api.delete("/bookings/{booking_id}")
+async def delete_booking(booking_id: str, current: dict = Depends(get_current_user)):
+    """Delete an old booking and its Cloudinary photos. Active bookings cannot be deleted."""
+    b = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
+    if not b:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if b["status"] == "active":
+        raise HTTPException(status_code=400, detail="Cannot delete active booking — checkout first")
+
+    # Delete photos from Cloudinary
+    public_ids = [
+        b.get("aadhar_front_public_id"),
+        b.get("aadhar_back_public_id"),
+        b.get("partner_aadhar_front_public_id"),
+        b.get("partner_aadhar_back_public_id"),
+    ]
+    delete_from_cloudinary([p for p in public_ids if p])
+
+    # Delete from DB
+    await db.bookings.delete_one({"id": booking_id})
+    return {"ok": True, "deleted_id": booking_id}
+
+
+@api.delete("/bookings/cleanup/older-than/{days}")
+async def cleanup_old(days: int, current: dict = Depends(get_current_user)):
+    """Bulk delete completed bookings older than N days. Admin-only."""
+    if current.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if days < 1:
+        raise HTTPException(status_code=400, detail="Days must be >= 1")
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    cursor = db.bookings.find(
+        {"status": "completed", "created_at": {"$lt": cutoff}}, {"_id": 0}
+    )
+    deleted = 0
+    async for b in cursor:
+        public_ids = [
+            b.get("aadhar_front_public_id"),
+            b.get("aadhar_back_public_id"),
+            b.get("partner_aadhar_front_public_id"),
+            b.get("partner_aadhar_back_public_id"),
+        ]
+        delete_from_cloudinary([p for p in public_ids if p])
+        await db.bookings.delete_one({"id": b["id"]})
+        deleted += 1
+    return {"ok": True, "deleted": deleted, "older_than_days": days}
 
 
 # ---------- WebSocket ----------
