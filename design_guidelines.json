@@ -1,0 +1,94 @@
+{
+  "project_name": "Swastik Hotel Booking Management System",
+  "platform": "React Native (Expo SDK 54, expo-router)",
+  "theme_archetype": "Organic & Earthy",
+  "theme_mode": "Light",
+  "color_palette": {
+    "background": "#F9F6F0",
+    "surface": "#FFFFFF",
+    "surface_secondary": "#F3EFE6",
+    "primary": "#0F382E",
+    "primary_light": "#1A4E42",
+    "primary_text": "#FFFFFF",
+    "accent": "#C25934",
+    "accent_text": "#FFFFFF",
+    "text_main": "#1C1917",
+    "text_muted": "#78716C",
+    "border": "#E6E2D8",
+    "status_available_bg": "#E8F3EE",
+    "status_available_text": "#2E6D54",
+    "status_occupied_bg": "#FDECE8",
+    "status_occupied_text": "#B94A2B",
+    "tag_ac_bg": "#E0F2FE",
+    "tag_ac_text": "#0284C7",
+    "tag_nonac_bg": "#FEF3C7",
+    "tag_nonac_text": "#B45309"
+  },
+  "typography": {
+    "heading_font": "Manrope",
+    "body_font": "Work Sans",
+    "sizes": {
+      "h1": "text-3xl font-bold tracking-tight",
+      "h2": "text-2xl font-bold tracking-tight",
+      "h3": "text-xl font-semibold",
+      "body_large": "text-lg",
+      "body": "text-base",
+      "small": "text-sm",
+      "caption": "text-xs uppercase tracking-widest"
+    }
+  },
+  "layout_and_spacing": {
+    "padding": {
+      "screen": "p-6",
+      "card": "p-5",
+      "input": "p-4"
+    },
+    "border_radius": {
+      "button": "rounded-xl",
+      "card": "rounded-2xl",
+      "input": "rounded-xl",
+      "chip": "rounded-full"
+    },
+    "shadows": {
+      "soft": "shadow-[0_4px_20px_rgba(15,56,46,0.05)]",
+      "floating": "shadow-[0_8px_30px_rgba(194,89,52,0.15)]"
+    }
+  },
+  "components": {
+    "dashboard_grid": "Bento-style grid for rooms. Use a 2-column layout for rooms 101-106, and make 107 full-width or centered. Each card must visibly show the room number, AC/Non-AC status, and Available/Occupied state.",
+    "room_card_available": "Clean white background, soft shadow. Features a green 'Available' chip, large typography for room number, and an embedded 'Book' CTA icon or button.",
+    "room_card_occupied": "Tinted background (e.g., #FDF7F5). Features a red 'Occupied' chip, displays the Guest Name and checkout time. 'Checkout' button should be accessible.",
+    "booking_flow": "Use a clean scrollable form (ScrollView + KeyboardAvoidingView). Inputs should be large and thumb-friendly. The rate editor should show the base price with a tactile, distinct '+₹100' pill button next to it for quick increments.",
+    "photo_upload": "Two side-by-side square or 4:3 touchable dropzones for 'Aadhar Front' and 'Aadhar Back'. Dashed borders with a subtle primary-tinted background and a camera icon.",
+    "bottom_tabs": "Floating pill-shaped tab bar or a clean bottom-anchored tab bar. Active tab icon should be primary color, inactive should be text_muted.",
+    "inputs": "Filled or outlined inputs with generous padding. Highlight border in primary color on focus."
+  },
+  "image_urls": [
+    {
+      "url": "https://images.pexels.com/photos/5378701/pexels-photo-5378701.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "category": "login_background",
+      "description": "Elegant reception bell, use as a subtle blurred background for the login screen to establish a premium hospitality feel."
+    },
+    {
+      "url": "https://images.pexels.com/photos/35213047/pexels-photo-35213047.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "category": "room_thumbnail_ac",
+      "description": "Modern double bed hotel room with warm lighting. Use as a header or thumbnail for AC room details."
+    },
+    {
+      "url": "https://images.pexels.com/photos/33125906/pexels-photo-33125906.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "category": "room_thumbnail_nonac",
+      "description": "Cozy room with warm lighting. Use as a header or thumbnail for Non-AC room details."
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1762648917354-f90fc877e036?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzV8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjB0cmFkaXRpb25hbCUyMGFic3RyYWN0JTIwcGF0dGVybnxlbnwwfHx8fDE3Nzc0MDIwNDB8MA&ixlib=rb-4.1.0&q=85",
+      "category": "pattern_accent",
+      "description": "Indian traditional abstract stone carving pattern, use sparingly for top header backgrounds or empty states."
+    }
+  ],
+  "technical_instructions": {
+    "file_structure": "Ensure all files are created as .js files (not .tsx).",
+    "testing": "All interactive elements (buttons, inputs, cards) MUST include a 'testID' attribute (e.g., testID='login-submit-button') for React Native testing.",
+    "routing": "Use expo-router file-based routing. Implement tabs for Dashboard, Bookings, Search, and Settings.",
+    "ui_primitives": "Use React Native components (<View>, <Text>, <TextInput>, <TouchableOpacity>). Do not use HTML web elements. Map the JSON color palette to standard RN StyleSheet or Tailwind via NativeWind."
+  }
+}
