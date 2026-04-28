@@ -1,7 +1,8 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || "";
+export const BACKEND_URL =
+  process.env.EXPO_PUBLIC_BACKEND_URL || "https://swastik-hotel.onrender.com";
 export const API_URL = `${BACKEND_URL}/api`;
 
 const TOKEN_KEY = "swastik_token";
