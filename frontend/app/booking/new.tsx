@@ -42,6 +42,8 @@ export default function NewBooking() {
   const [submitting, setSubmitting] = useState(false);
   const [showRooms, setShowRooms] = useState(false);
   const [includePartner, setIncludePartner] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     api.get<Room[]>("/rooms").then(({ data }) => setRooms(data)).catch(() => {});
@@ -61,9 +63,10 @@ export default function NewBooking() {
   }, [roomNo, duration, room]);
 
   const pickImage = async (setter: (v: string | null) => void) => {
+    setError(null);
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert("Permission needed", "Please allow access to photos");
+      setError("Please allow access to photos");
       return;
     }
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -79,9 +82,14 @@ export default function NewBooking() {
   };
 
   const captureImage = async (setter: (v: string | null) => void) => {
+    setError(null);
+    if (Platform.OS === "web") {
+      // Camera not reliable on web - fall back to gallery/file picker
+      return pickImage(setter);
+    }
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert("Permission needed", "Please allow camera access");
+      setError("Please allow camera access");
       return;
     }
     const res = await ImagePicker.launchCameraAsync({
@@ -97,6 +105,11 @@ export default function NewBooking() {
   };
 
   const promptPhoto = (setter: (v: string | null) => void) => {
+    if (Platform.OS === "web") {
+      // On web just open file picker directly
+      pickImage(setter);
+      return;
+    }
     Alert.alert("Add Aadhar Photo", "Choose source", [
       { text: "Camera", onPress: () => captureImage(setter) },
       { text: "Gallery", onPress: () => pickImage(setter) },
@@ -105,18 +118,21 @@ export default function NewBooking() {
   };
 
   const onSubmit = async () => {
-    if (!roomNo) return Alert.alert("Missing", "Please select a room");
-    if (!name.trim()) return Alert.alert("Missing", "Customer name required");
+    setError(null);
+    setSuccess(null);
+    if (!roomNo) { setError("Please select a room"); return; }
+    if (!name.trim()) { setError("Customer name is required"); return; }
     const aClean = aadhar.replace(/\s/g, "");
-    if (!/^\d{12}$/.test(aClean)) return Alert.alert("Invalid", "Aadhar must be 12 digits");
-    if (!/^\d{10}$/.test(phone.replace(/\s/g, "")))
-      return Alert.alert("Invalid", "Phone must be 10 digits");
-    if (!front || !back) return Alert.alert("Missing", "Aadhar front and back photos are required");
+    if (!/^\d{12}$/.test(aClean)) { setError("Aadhar must be 12 digits"); return; }
+    if (!/^\d{10}$/.test(phone.replace(/\s/g, ""))) {
+      setError("Phone must be 10 digits"); return;
+    }
+    if (!front || !back) { setError("Aadhar front and back photos are required"); return; }
     if (includePartner) {
-      if (!partnerName.trim()) return Alert.alert("Missing", "Partner name required");
+      if (!partnerName.trim()) { setError("Partner name required"); return; }
       const pClean = partnerAadhar.replace(/\s/g, "");
-      if (!/^\d{12}$/.test(pClean)) return Alert.alert("Invalid", "Partner Aadhar must be 12 digits");
-      if (!pFront || !pBack) return Alert.alert("Missing", "Partner Aadhar photos required");
+      if (!/^\d{12}$/.test(pClean)) { setError("Partner Aadhar must be 12 digits"); return; }
+      if (!pFront || !pBack) { setError("Partner Aadhar photos required"); return; }
     }
 
     setSubmitting(true);
@@ -136,9 +152,10 @@ export default function NewBooking() {
         rate,
         notes: notes.trim() || null,
       });
-      Alert.alert("Success", "Booking created", [{ text: "OK", onPress: () => router.back() }]);
+      setSuccess("Booking confirmed successfully!");
+      setTimeout(() => router.back(), 900);
     } catch (e) {
-      Alert.alert("Error", formatErr(e));
+      setError(formatErr(e));
     } finally {
       setSubmitting(false);
     }
@@ -293,6 +310,19 @@ export default function NewBooking() {
               />
             </View>
           </Section>
+
+          {error ? (
+            <View style={styles.errorBanner} testID="booking-error">
+              <Ionicons name="alert-circle" size={18} color={colors.occupiedText} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+          {success ? (
+            <View style={styles.successBanner} testID="booking-success">
+              <Ionicons name="checkmark-circle" size={18} color={colors.availableText} />
+              <Text style={styles.successText}>{success}</Text>
+            </View>
+          ) : null}
 
           <TouchableOpacity
             style={[styles.submit, submitting && { opacity: 0.7 }]}
@@ -470,6 +500,16 @@ const styles = StyleSheet.create({
     paddingVertical: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
   },
   submitText: { color: colors.primaryText, fontSize: 16, fontWeight: "700" },
+  errorBanner: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: colors.occupiedBg, padding: 12, borderRadius: radii.md, marginBottom: 12,
+  },
+  errorText: { flex: 1, color: colors.occupiedText, fontSize: 13, fontWeight: "600" },
+  successBanner: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: colors.availableBg, padding: 12, borderRadius: radii.md, marginBottom: 12,
+  },
+  successText: { flex: 1, color: colors.availableText, fontSize: 13, fontWeight: "700" },
   modalBg: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   modalCard: {
     backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
