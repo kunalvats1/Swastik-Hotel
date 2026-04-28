@@ -21,13 +21,16 @@ export default function BookingDetailScreen() {
   const [b, setB] = useState<BookingDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
+  const [confirmCheckout, setConfirmCheckout] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
       const { data } = await api.get<BookingDetail>(`/bookings/${id}`);
       setB(data);
     } catch (e) {
-      Alert.alert("Error", formatErr(e));
+      setError(formatErr(e));
     } finally {
       setLoading(false);
     }
@@ -35,24 +38,25 @@ export default function BookingDetailScreen() {
 
   useEffect(() => { load(); }, [load]);
 
-  const checkout = () => {
-    Alert.alert("Checkout", "Mark this booking as completed?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Yes, checkout",
-        onPress: async () => {
-          setWorking(true);
-          try {
-            await api.post(`/bookings/${id}/checkout`);
-            await load();
-          } catch (e) {
-            Alert.alert("Error", formatErr(e));
-          } finally {
-            setWorking(false);
-          }
-        },
-      },
-    ]);
+  const checkout = async () => {
+    if (!confirmCheckout) {
+      setConfirmCheckout(true);
+      setTimeout(() => setConfirmCheckout(false), 4000);
+      return;
+    }
+    setWorking(true);
+    setError(null);
+    try {
+      await api.post(`/bookings/${id}/checkout`);
+      setSuccess(`Room ${b?.room_no} is now available`);
+      await load();
+      setConfirmCheckout(false);
+      setTimeout(() => router.back(), 1100);
+    } catch (e) {
+      setError(formatErr(e));
+    } finally {
+      setWorking(false);
+    }
   };
 
   if (loading) {
@@ -158,21 +162,48 @@ export default function BookingDetailScreen() {
         </Card>
 
         {b.status === "active" && (
-          <TouchableOpacity
-            style={[styles.checkoutBtn, working && { opacity: 0.7 }]}
-            onPress={checkout}
-            disabled={working}
-            testID="checkout-button"
-          >
-            {working ? (
-              <ActivityIndicator color={colors.primaryText} />
-            ) : (
-              <>
-                <Ionicons name="exit-outline" size={20} color={colors.primaryText} />
-                <Text style={styles.checkoutText}>Check Out Guest</Text>
-              </>
+          <>
+            {error ? (
+              <View style={styles.errorBanner} testID="checkout-error">
+                <Ionicons name="alert-circle" size={18} color={colors.occupiedText} />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+            {success ? (
+              <View style={styles.successBanner} testID="checkout-success">
+                <Ionicons name="checkmark-circle" size={18} color={colors.availableText} />
+                <Text style={styles.successText}>{success}</Text>
+              </View>
+            ) : null}
+            <TouchableOpacity
+              style={[
+                styles.checkoutBtn,
+                confirmCheckout && { backgroundColor: colors.occupiedText },
+                working && { opacity: 0.7 },
+              ]}
+              onPress={checkout}
+              disabled={working}
+              testID="checkout-button"
+            >
+              {working ? (
+                <ActivityIndicator color={colors.primaryText} />
+              ) : (
+                <>
+                  <Ionicons
+                    name={confirmCheckout ? "warning" : "exit-outline"}
+                    size={20}
+                    color={colors.primaryText}
+                  />
+                  <Text style={styles.checkoutText}>
+                    {confirmCheckout ? "Tap again to confirm checkout" : "Check Out Guest"}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+            {confirmCheckout && (
+              <Text style={styles.confirmHint}>This will mark Room {b.room_no} as available</Text>
             )}
-          </TouchableOpacity>
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -235,4 +266,15 @@ const styles = StyleSheet.create({
     paddingVertical: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
   },
   checkoutText: { color: colors.primaryText, fontSize: 16, fontWeight: "700" },
+  confirmHint: { textAlign: "center", marginTop: 8, fontSize: 12, color: colors.textMuted, fontStyle: "italic" },
+  errorBanner: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: colors.occupiedBg, padding: 12, borderRadius: radii.md, marginTop: 18,
+  },
+  errorText: { flex: 1, color: colors.occupiedText, fontSize: 13, fontWeight: "600" },
+  successBanner: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: colors.availableBg, padding: 12, borderRadius: radii.md, marginTop: 18,
+  },
+  successText: { flex: 1, color: colors.availableText, fontSize: 13, fontWeight: "700" },
 });

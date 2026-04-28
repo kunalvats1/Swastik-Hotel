@@ -237,16 +237,16 @@ export default function NewBooking() {
             <Field
               label="Aadhar ID (12 digits)"
               value={aadhar}
-              onChangeText={setAadhar}
-              placeholder="XXXX XXXX XXXX"
+              onChangeText={(t: string) => setAadhar(t.replace(/\D/g, "").slice(0, 12))}
+              placeholder="123412341234"
               keyboardType="number-pad"
-              maxLength={14}
+              maxLength={12}
               testID="cust-aadhar"
             />
             <Field
               label="Phone (10 digits)"
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={(t: string) => setPhone(t.replace(/\D/g, "").slice(0, 10))}
               placeholder="9876543210"
               keyboardType="phone-pad"
               maxLength={10}
@@ -283,9 +283,9 @@ export default function NewBooking() {
                 <Field
                   label="Partner Aadhar (12 digits)"
                   value={partnerAadhar}
-                  onChangeText={setPartnerAadhar}
+                  onChangeText={(t: string) => setPartnerAadhar(t.replace(/\D/g, "").slice(0, 12))}
                   keyboardType="number-pad"
-                  maxLength={14}
+                  maxLength={12}
                   testID="partner-aadhar"
                 />
                 <View style={[styles.photoRow, { marginTop: 4 }]}>
